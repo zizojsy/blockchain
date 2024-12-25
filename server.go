@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 )
@@ -76,12 +75,12 @@ func bytesToCommand(bytes []byte) string {
 		}
 	}
 
-	return fmt.Sprintf("%s", command)
+	return string(command)
 }
 
-func extractCommand(request []byte) []byte {
-	return request[:commandLength]
-}
+// func extractCommand(request []byte) []byte {
+// 	return request[:commandLength]
+// }
 
 func requestBlocks() {
 	for _, node := range knownNodes {
@@ -89,14 +88,14 @@ func requestBlocks() {
 	}
 }
 
-func sendAddr(address string) {
-	nodes := addr{knownNodes}
-	nodes.AddrList = append(nodes.AddrList, nodeAddress)
-	payload := gobEncode(nodes)
-	request := append(commandToBytes("addr"), payload...)
+// func sendAddr(address string) {
+// 	nodes := addr{knownNodes}
+// 	nodes.AddrList = append(nodes.AddrList, nodeAddress)
+// 	payload := gobEncode(nodes)
+// 	request := append(commandToBytes("addr"), payload...)
 
-	sendData(address, request)
-}
+// 	sendData(address, request)
+// }
 
 func sendBlock(addr string, b *Block) {
 	data := block{nodeAddress, b.Serialize()}
@@ -215,7 +214,7 @@ func handleBlock(request []byte, bc *Blockchain) {
 	}
 }
 
-func handleInv(request []byte, bc *Blockchain) {
+func handleInv(request []byte) {
 	var buff bytes.Buffer
 	var payload inv
 
@@ -236,7 +235,7 @@ func handleInv(request []byte, bc *Blockchain) {
 
 		newInTransit := [][]byte{}
 		for _, b := range blocksInTransit {
-			if bytes.Compare(b, blockHash) != 0 {
+			if !bytes.Equal(b, blockHash) {
 				newInTransit = append(newInTransit, b)
 			}
 		}
@@ -388,7 +387,7 @@ func handleVersion(request []byte, bc *Blockchain) {
 }
 
 func handleConnection(conn net.Conn, bc *Blockchain) {
-	request, err := ioutil.ReadAll(conn)
+	request, err := io.ReadAll(conn)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -401,7 +400,7 @@ func handleConnection(conn net.Conn, bc *Blockchain) {
 	case "block":
 		handleBlock(request, bc)
 	case "inv":
-		handleInv(request, bc)
+		handleInv(request)
 	case "getblocks":
 		handleGetBlocks(request, bc)
 	case "getdata":

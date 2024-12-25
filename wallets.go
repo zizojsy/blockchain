@@ -28,7 +28,7 @@ func NewWallets(nodeID string) (*Wallets, error) {
 // CreateWallet adds a Wallet to Wallets
 func (ws *Wallets) CreateWallet() string {
 	wallet := NewWallet()
-	address := fmt.Sprintf("%s", wallet.GetAddress())
+	address := string(wallet.GetAddress())
 
 	ws.Wallets[address] = wallet
 

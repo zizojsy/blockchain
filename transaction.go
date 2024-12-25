@@ -163,7 +163,7 @@ func (tx *Transaction) Verify(prevTXs map[string]Transaction) bool {
 		dataToVerify := fmt.Sprintf("%x\n", txCopy)
 
 		rawPubKey := ecdsa.PublicKey{Curve: curve, X: &x, Y: &y}
-		if ecdsa.Verify(&rawPubKey, []byte(dataToVerify), &r, &s) == false {
+		if !ecdsa.Verify(&rawPubKey, []byte(dataToVerify), &r, &s) {
 			return false
 		}
 		txCopy.Vin[inID].PubKey = nil
@@ -218,7 +218,7 @@ func NewUTXOTransaction(wallet *Wallet, to string, amount int, UTXOSet *UTXOSet)
 	}
 
 	// Build a list of outputs
-	from := fmt.Sprintf("%s", wallet.GetAddress())
+	from := string(wallet.GetAddress())
 	outputs = append(outputs, *NewTXOutput(amount, to))
 	if acc > amount {
 		outputs = append(outputs, *NewTXOutput(acc-amount, from)) // a change

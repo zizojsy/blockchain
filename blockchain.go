@@ -147,7 +147,7 @@ func (bc *Blockchain) FindTransaction(ID []byte) (Transaction, error) {
 		block := bci.Next()
 
 		for _, tx := range block.Transactions {
-			if bytes.Compare(tx.ID, ID) == 0 {
+			if bytes.Equal(tx.ID, ID) {
 				return *tx, nil
 			}
 		}
@@ -237,7 +237,7 @@ func (bc *Blockchain) GetBlock(blockHash []byte) (Block, error) {
 		blockData, _ := tx.Get(blocksBucket, blockHash)
 
 		if blockData == nil {
-			return errors.New("Block is not found.")
+			return errors.New("Block is not found")
 		}
 
 		block = *DeserializeBlock(blockData)

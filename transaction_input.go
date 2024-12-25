@@ -14,5 +14,5 @@ type TXInput struct {
 func (in *TXInput) UsesKey(pubKeyHash []byte) bool {
 	lockingHash := HashPubKey(in.PubKey)
 
-	return bytes.Compare(lockingHash, pubKeyHash) == 0
+	return bytes.Equal(lockingHash, pubKeyHash)
 }
