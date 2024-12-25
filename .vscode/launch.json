@@ -1,0 +1,17 @@
+{
+    "configurations": [
+        {
+            "name": "Launch",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${fileDirname}",
+            "env": {},
+            "args": [
+                "createblockchain",
+                "-address",
+                "1C4UESHHxsmXfAckjFVfPAu2muFWgtsF3m"
+            ]
+        }
+    ]
+}
