@@ -14,7 +14,8 @@ import (
 
 const dbFile = "db/dblockchain_%s"
 const blocksBucket = "blocks"
-const genesisCoinbaseData = "manual create block chain according to Fuda MSE Project"
+const genesisCoinbaseData = "Create block chain mannually according to Fuda MSE Project"
+const genesisAddress = "1sVQW7fv6Gx6EqS1fvzzq9w56zFuhpJnK"
 
 // Blockchain implements interactions with a DB
 type Blockchain struct {
@@ -22,9 +23,25 @@ type Blockchain struct {
 	db  *nutsdb.DB
 }
 
+func GetDbName(nodeID string) string {
+	return fmt.Sprintf(dbFile, nodeID)
+}
+
+func CreateGenesisIfNeeded(nodeID string) {
+	if !dbExists(GetDbName(nodeID)) {
+		bc := CreateBlockchain(nodeID)
+		defer bc.db.Close()
+
+		UTXOSet := UTXOSet{bc}
+		UTXOSet.Reindex()
+
+		fmt.Println("Done!")
+	}
+}
+
 // CreateBlockchain creates a new blockchain DB
-func CreateBlockchain(address, nodeID string) *Blockchain {
-	dbFile := fmt.Sprintf(dbFile, nodeID)
+func CreateBlockchain(nodeID string) *Blockchain {
+	dbFile := GetDbName(nodeID)
 	if dbExists(dbFile) {
 		fmt.Println("Blockchain already exists.")
 		os.Exit(1)
@@ -32,7 +49,7 @@ func CreateBlockchain(address, nodeID string) *Blockchain {
 
 	var tip []byte
 
-	cbtx := NewCoinbaseTX(address, genesisCoinbaseData)
+	cbtx := NewCoinbaseTX(genesisAddress, genesisCoinbaseData)
 	genesis := NewGenesisBlock(cbtx)
 
 	db, err := nutsdb.Open(nutsdb.DefaultOptions, nutsdb.WithDir(dbFile))

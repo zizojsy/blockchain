@@ -32,11 +32,6 @@ func (cli *CLI) validateArgs() {
 
 // Run parses command line arguments and processes commands
 func (cli *CLI) Run() {
-	// err := godotenv.Load()
-	// if err != nil {
-	// 	log.Panic(err)
-	// }
-
 	cli.validateArgs()
 
 	nodeID := os.Getenv("NODE_ID")
@@ -55,7 +50,6 @@ func (cli *CLI) Run() {
 	startNodeCmd := flag.NewFlagSet("startnode", flag.ExitOnError)
 
 	getBalanceAddress := getBalanceCmd.String("address", "", "The address to get balance for")
-	createBlockchainAddress := createBlockchainCmd.String("address", "", "The address to send genesis block reward to")
 	sendFrom := sendCmd.String("from", "", "Source wallet address")
 	sendTo := sendCmd.String("to", "", "Destination wallet address")
 	sendAmount := sendCmd.Int("amount", 0, "Amount to send")
@@ -117,11 +111,7 @@ func (cli *CLI) Run() {
 	}
 
 	if createBlockchainCmd.Parsed() {
-		if *createBlockchainAddress == "" {
-			createBlockchainCmd.Usage()
-			os.Exit(1)
-		}
-		cli.createBlockchain(*createBlockchainAddress, nodeID)
+		cli.createBlockchain(nodeID)
 	}
 
 	if createWalletCmd.Parsed() {
