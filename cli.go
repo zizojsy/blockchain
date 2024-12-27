@@ -6,8 +6,6 @@ import (
 	"log"
 
 	"os"
-
-	"github.com/joho/godotenv"
 )
 
 // CLI responsible for processing command line arguments
@@ -34,10 +32,10 @@ func (cli *CLI) validateArgs() {
 
 // Run parses command line arguments and processes commands
 func (cli *CLI) Run() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Panic(err)
-	}
+	// err := godotenv.Load()
+	// if err != nil {
+	// 	log.Panic(err)
+	// }
 
 	cli.validateArgs()
 
@@ -123,7 +121,6 @@ func (cli *CLI) Run() {
 			createBlockchainCmd.Usage()
 			os.Exit(1)
 		}
-		// address := base58.Encode([]byte(*createBlockchainAddress))
 		cli.createBlockchain(*createBlockchainAddress, nodeID)
 	}
 
