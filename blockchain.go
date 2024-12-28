@@ -17,6 +17,8 @@ const blocksBucket = "blocks"
 const genesisCoinbaseData = "Create block chain mannually according to Fuda MSE Project"
 const genesisAddress = "1sVQW7fv6Gx6EqS1fvzzq9w56zFuhpJnK"
 
+const dbFileSize = 64 * nutsdb.MB
+
 // Blockchain implements interactions with a DB
 type Blockchain struct {
 	tip []byte
@@ -52,7 +54,7 @@ func CreateBlockchain(nodeID string) *Blockchain {
 	cbtx := NewCoinbaseTX(genesisAddress, genesisCoinbaseData)
 	genesis := NewGenesisBlock(cbtx)
 
-	db, err := nutsdb.Open(nutsdb.DefaultOptions, nutsdb.WithDir(dbFile))
+	db, err := nutsdb.Open(nutsdb.DefaultOptions, nutsdb.WithDir(dbFile), nutsdb.WithSegmentSize(dbFileSize))
 	if err != nil {
 		log.Panic(err)
 	}
@@ -101,7 +103,7 @@ func NewBlockchain(nodeID string) *Blockchain {
 	}
 
 	var tip []byte
-	db, err := nutsdb.Open(nutsdb.DefaultOptions, nutsdb.WithDir(dbFile))
+	db, err := nutsdb.Open(nutsdb.DefaultOptions, nutsdb.WithDir(dbFile), nutsdb.WithSegmentSize(dbFileSize))
 	if err != nil {
 		log.Panic(err)
 	}
