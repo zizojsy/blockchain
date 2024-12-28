@@ -15,7 +15,10 @@ import (
 const dbFile = "db/dblockchain_%s"
 const blocksBucket = "blocks"
 const genesisCoinbaseData = "Create block chain mannually according to Fuda MSE Project"
-const genesisAddress = "1sVQW7fv6Gx6EqS1fvzzq9w56zFuhpJnK"
+
+var centerWallets = GetCenterWallets()
+
+var genesisAddress = centerWallets.GetAddresses()[0]
 
 const dbFileSize = 64 * nutsdb.MB
 

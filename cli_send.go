@@ -17,7 +17,7 @@ func (cli *CLI) send(from, to string, amount int, nodeID string, mineNow bool) {
 	UTXOSet := UTXOSet{bc}
 	defer bc.db.Close()
 
-	wallets, err := NewWallets(nodeID)
+	wallets, err := GetWallets(nodeID)
 	if err != nil {
 		log.Panic(err)
 	}

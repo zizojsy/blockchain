@@ -13,10 +13,11 @@ import (
 const protocol = "tcp"
 const nodeVersion = 1
 const commandLength = 12
+const centerNodeId = "3000"
 
 var nodeAddress string
 var miningAddress string
-var knownNodes = []string{"localhost:3000"}
+var knownNodes = []string{fmt.Sprintf("localhost:%s", centerNodeId)}
 var blocksInTransit = [][]byte{}
 var mempool = make(map[string]Transaction)
 

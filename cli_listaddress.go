@@ -6,7 +6,8 @@ import (
 )
 
 func (cli *CLI) listAddresses(nodeID string) {
-	wallets, err := NewWallets(nodeID)
+
+	wallets, err := GetWallets(nodeID)
 	if err != nil {
 		log.Panic(err)
 	}

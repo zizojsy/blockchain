@@ -6,7 +6,9 @@
             "request": "launch",
             "mode": "auto",
             "program": "${fileDirname}",
-            "env": {},
+            "env": {
+                "NODE_ID": "3000"
+            },
             "args": [
                 "startnode"
             ]
