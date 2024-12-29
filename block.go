@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"log"
+	"os"
 	"time"
 )
 
@@ -70,4 +71,38 @@ func DeserializeBlock(d []byte) *Block {
 	}
 
 	return &block
+}
+
+func (block Block) SaveToFile(filename string) {
+	var content bytes.Buffer
+
+	encoder := gob.NewEncoder(&content)
+	err := encoder.Encode(block)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	err = os.WriteFile(filename, content.Bytes(), 0644)
+	if err != nil {
+		log.Panic(err)
+	}
+}
+
+func (block *Block) LoadFromFile(filename string) error {
+
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return err
+	}
+	fileContent, err := os.ReadFile(filename)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	decoder := gob.NewDecoder(bytes.NewReader(fileContent))
+	err = decoder.Decode(&block)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return nil
 }

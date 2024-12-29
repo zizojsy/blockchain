@@ -10,7 +10,9 @@
                 "NODE_ID": "3002"
             },
             "args": [
-                "startnode"
+                "getbalance",
+                "-address",
+                "1Ak2A6qbqzGmVcK864rMNQ8Tegfo9rVp8w"
             ]
         }
     ]

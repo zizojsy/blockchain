@@ -15,6 +15,7 @@ import (
 const dbFile = "db/dblockchain_%s"
 const blocksBucket = "blocks"
 const genesisCoinbaseData = "Create block chain mannually according to Fuda MSE Project"
+const genesisBlockFile = "genesis.blk"
 
 var centerWallets = GetCenterWallets()
 
@@ -44,6 +45,23 @@ func CreateGenesisIfNeeded(nodeID string) {
 	}
 }
 
+func CreateGenesisBlock() *Block {
+	cbtx := NewCoinbaseTX(genesisAddress, genesisCoinbaseData)
+	return NewGenesisBlock(cbtx)
+}
+
+func GetGenesisBlock() *Block {
+	if _, err := os.Stat(genesisBlockFile); errors.Is(err, os.ErrNotExist) {
+		genesis := CreateGenesisBlock()
+		genesis.SaveToFile(genesisBlockFile)
+		return genesis
+	} else {
+		genesis := Block{}
+		genesis.LoadFromFile(genesisBlockFile)
+		return &genesis
+	}
+}
+
 // CreateBlockchain creates a new blockchain DB
 func CreateBlockchain(nodeID string) *Blockchain {
 	dbFile := GetDbName(nodeID)
@@ -54,9 +72,9 @@ func CreateBlockchain(nodeID string) *Blockchain {
 
 	var tip []byte
 
-	cbtx := NewCoinbaseTX(genesisAddress, genesisCoinbaseData)
-	genesis := NewGenesisBlock(cbtx)
-
+	// cbtx := NewCoinbaseTX(genesisAddress, genesisCoinbaseData)
+	// genesis := NewGenesisBlock(cbtx)
+	genesis := GetGenesisBlock()
 	db, err := nutsdb.Open(nutsdb.DefaultOptions, nutsdb.WithDir(dbFile), nutsdb.WithSegmentSize(dbFileSize))
 	if err != nil {
 		log.Panic(err)

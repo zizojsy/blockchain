@@ -2,5 +2,5 @@
 *.dat
 *.exe
 db/*
-
+*.blk
 .idea
