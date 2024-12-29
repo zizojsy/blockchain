@@ -20,7 +20,7 @@ var centerWallets = GetCenterWallets()
 
 var genesisAddress = centerWallets.GetAddresses()[0]
 
-const dbFileSize = 64 * nutsdb.MB
+const dbFileSize = 4 * nutsdb.MB
 
 // Blockchain implements interactions with a DB
 type Blockchain struct {
@@ -63,35 +63,25 @@ func CreateBlockchain(nodeID string) *Blockchain {
 	}
 
 	if err := db.Update(func(tx *nutsdb.Tx) error {
-		// you should call Bucket with data structure and the name of bucket first
 		return tx.NewBucket(nutsdb.DataStructureBTree, blocksBucket)
 	}); err != nil {
-		log.Fatal(err)
-	}
-
-	err = db.Update(func(tx *nutsdb.Tx) error {
-		// err := tx.NewBucket(nutsdb.DataStructureBTree, blocksBucket)
-		if err != nil {
-			log.Panic(err)
-		}
-
-		err = tx.Put(blocksBucket, genesis.Hash, genesis.Serialize(), 0)
-		if err != nil {
-			log.Panic(err)
-		}
-
-		err = tx.Put(blocksBucket, []byte("l"), genesis.Hash, 0)
-		if err != nil {
-			log.Panic(err)
-		}
-		tip = genesis.Hash
-
-		return nil
-	})
-	if err != nil {
 		log.Panic(err)
 	}
 
+	if err := db.Update(func(tx *nutsdb.Tx) error {
+		if err := tx.Put(blocksBucket, genesis.Hash, genesis.Serialize(), 0); err != nil {
+			return err
+		}
+
+		if err := tx.Put(blocksBucket, []byte("l"), genesis.Hash, 0); err != nil {
+			return err
+		}
+
+		tip = genesis.Hash
+		return nil
+	}); err != nil {
+		log.Panic(err)
+	}
 	bc := Blockchain{tip, db}
 
 	return &bc
@@ -105,31 +95,29 @@ func NewBlockchain(nodeID string) *Blockchain {
 		os.Exit(1)
 	}
 
-	var tip []byte
 	db, err := nutsdb.Open(nutsdb.DefaultOptions, nutsdb.WithDir(dbFile), nutsdb.WithSegmentSize(dbFileSize))
 	if err != nil {
 		log.Panic(err)
 	}
 
-	err = db.Update(func(tx *nutsdb.Tx) error {
-		tip, err = tx.Get(blocksBucket, []byte("l"))
-		if err != nil {
-			log.Panic(err)
+	var bc Blockchain
+	if err := db.View(func(tx *nutsdb.Tx) error {
+		if tip, err := tx.Get(blocksBucket, []byte("l")); err != nil {
+			return err
+		} else {
+			bc = Blockchain{tip, db}
 		}
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		log.Panic(err)
 	}
-
-	bc := Blockchain{tip, db}
 
 	return &bc
 }
 
 // AddBlock saves the block into the blockchain
 func (bc *Blockchain) AddBlock(block *Block) {
-	err := bc.db.Update(func(tx *nutsdb.Tx) error {
+	if err := bc.db.Update(func(tx *nutsdb.Tx) error {
 		blockInDb, _ := tx.Get(blocksBucket, block.Hash)
 
 		if blockInDb != nil {
@@ -137,8 +125,7 @@ func (bc *Blockchain) AddBlock(block *Block) {
 		}
 
 		blockData := block.Serialize()
-		err := tx.Put(blocksBucket, block.Hash, blockData, 0)
-		if err != nil {
+		if err := tx.Put(blocksBucket, block.Hash, blockData, 0); err != nil {
 			log.Panic(err)
 		}
 
@@ -147,16 +134,14 @@ func (bc *Blockchain) AddBlock(block *Block) {
 		lastBlock := DeserializeBlock(lastBlockData)
 
 		if block.Height > lastBlock.Height {
-			err = tx.Put(blocksBucket, []byte("l"), block.Hash, 0)
-			if err != nil {
+			if err := tx.Put(blocksBucket, []byte("l"), block.Hash, 0); err != nil {
 				log.Panic(err)
 			}
 			bc.tip = block.Hash
 		}
 
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		log.Panic(err)
 	}
 }
@@ -237,14 +222,13 @@ func (bc *Blockchain) Iterator() *BlockchainIterator {
 func (bc *Blockchain) GetBestHeight() int {
 	var lastBlock Block
 
-	err := bc.db.View(func(tx *nutsdb.Tx) error {
+	if err := bc.db.View(func(tx *nutsdb.Tx) error {
 		lastHash, _ := tx.Get(blocksBucket, []byte("l"))
 		blockData, _ := tx.Get(blocksBucket, lastHash)
 		lastBlock = *DeserializeBlock(blockData)
 
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		log.Panic(err)
 	}
 
@@ -255,7 +239,7 @@ func (bc *Blockchain) GetBestHeight() int {
 func (bc *Blockchain) GetBlock(blockHash []byte) (Block, error) {
 	var block Block
 
-	err := bc.db.View(func(tx *nutsdb.Tx) error {
+	if err := bc.db.View(func(tx *nutsdb.Tx) error {
 		blockData, _ := tx.Get(blocksBucket, blockHash)
 
 		if blockData == nil {
@@ -265,8 +249,7 @@ func (bc *Blockchain) GetBlock(blockHash []byte) (Block, error) {
 		block = *DeserializeBlock(blockData)
 
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return block, err
 	}
 
@@ -303,7 +286,7 @@ func (bc *Blockchain) MineBlock(transactions []*Transaction) *Block {
 		}
 	}
 
-	err := bc.db.View(func(tx *nutsdb.Tx) error {
+	if err := bc.db.View(func(tx *nutsdb.Tx) error {
 		lastHash, _ = tx.Get(blocksBucket, []byte("l"))
 
 		blockData, _ := tx.Get(blocksBucket, lastHash)
@@ -312,29 +295,25 @@ func (bc *Blockchain) MineBlock(transactions []*Transaction) *Block {
 		lastHeight = block.Height
 
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		log.Panic(err)
 	}
 
 	newBlock := NewBlock(transactions, lastHash, lastHeight+1)
 
-	err = bc.db.Update(func(tx *nutsdb.Tx) error {
-		err := tx.Put(blocksBucket, newBlock.Hash, newBlock.Serialize(), 0)
-		if err != nil {
+	if err := bc.db.Update(func(tx *nutsdb.Tx) error {
+		if err := tx.Put(blocksBucket, newBlock.Hash, newBlock.Serialize(), 0); err != nil {
 			log.Panic(err)
 		}
 
-		err = tx.Put(blocksBucket, []byte("l"), newBlock.Hash, 0)
-		if err != nil {
+		if err := tx.Put(blocksBucket, []byte("l"), newBlock.Hash, 0); err != nil {
 			log.Panic(err)
 		}
 
 		bc.tip = newBlock.Hash
 
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		log.Panic(err)
 	}
 

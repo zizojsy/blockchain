@@ -20,26 +20,24 @@ func (u UTXOSet) FindSpendableOutputs(pubkeyHash []byte, amount int) (int, map[s
 	accumulated := 0
 	db := u.Blockchain.db
 
-	err := db.View(func(tx *nutsdb.Tx) error {
-		keys, values, err := tx.GetAll(utxoBucket)
-		if err != nil {
+	if err := db.View(func(tx *nutsdb.Tx) error {
+		if keys, values, err := tx.GetAll(utxoBucket); err != nil {
 			log.Panic(err)
-		}
-
-		for index, key := range keys {
-			txID := hex.EncodeToString(key)
-			outs := DeserializeOutputs(values[index])
-			for outIdx, out := range outs.Outputs {
-				if out.IsLockedWithKey(pubkeyHash) && accumulated < amount {
-					accumulated += out.Value
-					unspentOutputs[txID] = append(unspentOutputs[txID], outIdx)
+		} else {
+			for index, key := range keys {
+				txID := hex.EncodeToString(key)
+				outs := DeserializeOutputs(values[index])
+				for outIdx, out := range outs.Outputs {
+					if out.IsLockedWithKey(pubkeyHash) && accumulated < amount {
+						accumulated += out.Value
+						unspentOutputs[txID] = append(unspentOutputs[txID], outIdx)
+					}
 				}
 			}
 		}
 
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		log.Panic(err)
 	}
 
@@ -51,23 +49,21 @@ func (u UTXOSet) FindUTXO(pubKeyHash []byte) []TXOutput {
 	var UTXOs []TXOutput
 	db := u.Blockchain.db
 
-	err := db.View(func(tx *nutsdb.Tx) error {
-		_, values, err := tx.GetAll(utxoBucket)
-		if err != nil {
+	if err := db.View(func(tx *nutsdb.Tx) error {
+		if _, values, err := tx.GetAll(utxoBucket); err != nil {
 			log.Panic(err)
-		}
-
-		for _, v := range values {
-			outs := DeserializeOutputs(v)
-			for _, out := range outs.Outputs {
-				if out.IsLockedWithKey(pubKeyHash) {
-					UTXOs = append(UTXOs, out)
+		} else {
+			for _, v := range values {
+				outs := DeserializeOutputs(v)
+				for _, out := range outs.Outputs {
+					if out.IsLockedWithKey(pubKeyHash) {
+						UTXOs = append(UTXOs, out)
+					}
 				}
 			}
 		}
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		log.Panic(err)
 	}
 
@@ -79,7 +75,7 @@ func (u UTXOSet) CountTransactions() int {
 	db := u.Blockchain.db
 	counter := 0
 
-	err := db.View(func(tx *nutsdb.Tx) error {
+	if err := db.View(func(tx *nutsdb.Tx) error {
 		_, values, err := tx.GetAll(utxoBucket)
 		if err != nil {
 			log.Panic(err)
@@ -87,8 +83,7 @@ func (u UTXOSet) CountTransactions() int {
 		counter = len(values)
 
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		log.Panic(err)
 	}
 
@@ -99,20 +94,22 @@ func (u UTXOSet) CountTransactions() int {
 func (u UTXOSet) Reindex() {
 	db := u.Blockchain.db
 
-	err := db.Update(func(tx *nutsdb.Tx) error {
-		err := tx.DeleteBucket(nutsdb.DataStructureBTree, utxoBucket)
-		if err != nil && err != nutsdb.ErrBucketNotFound {
+	if err := db.Update(func(tx *nutsdb.Tx) error {
+		if err := tx.DeleteBucket(nutsdb.DataStructureBTree, utxoBucket); err != nil && err != nutsdb.ErrBucketNotFound {
 			log.Panic(err)
 		}
+		return nil
+	}); err != nil {
+		log.Panic(err)
+	}
 
-		err = tx.NewBucket(nutsdb.DataStructureBTree, utxoBucket)
-		if err != nil {
+	if err := db.Update(func(tx *nutsdb.Tx) error {
+		if err := tx.NewBucket(nutsdb.DataStructureBTree, utxoBucket); err != nil {
 			log.Panic(err)
 		}
 
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		log.Panic(err)
 	}
 
@@ -120,14 +117,12 @@ func (u UTXOSet) Reindex() {
 
 	_ = db.Update(func(tx *nutsdb.Tx) error {
 		for txID, outs := range UTXO {
-			key, err := hex.DecodeString(txID)
-			if err != nil {
+			if key, err := hex.DecodeString(txID); err != nil {
 				log.Panic(err)
-			}
-
-			err = tx.Put(utxoBucket, key, outs.Serialize(), 0)
-			if err != nil {
-				log.Panic(err)
+			} else {
+				if err := tx.Put(utxoBucket, key, outs.Serialize(), 0); err != nil {
+					log.Panic(err)
+				}
 			}
 		}
 
@@ -140,7 +135,7 @@ func (u UTXOSet) Reindex() {
 func (u UTXOSet) Update(block *Block) {
 	db := u.Blockchain.db
 
-	err := db.Update(func(txn *nutsdb.Tx) error {
+	if err := db.Update(func(txn *nutsdb.Tx) error {
 		for _, tx := range block.Transactions {
 			if !tx.IsCoinbase() {
 				for _, vin := range tx.Vin {
@@ -155,13 +150,11 @@ func (u UTXOSet) Update(block *Block) {
 					}
 
 					if len(updatedOuts.Outputs) == 0 {
-						err := txn.Delete(utxoBucket, vin.Txid)
-						if err != nil {
+						if err := txn.Delete(utxoBucket, vin.Txid); err != nil {
 							log.Panic(err)
 						}
 					} else {
-						err := txn.Put(utxoBucket, vin.Txid, updatedOuts.Serialize(), 0)
-						if err != nil {
+						if err := txn.Put(utxoBucket, vin.Txid, updatedOuts.Serialize(), 0); err != nil {
 							log.Panic(err)
 						}
 					}
@@ -182,8 +175,7 @@ func (u UTXOSet) Update(block *Block) {
 		}
 
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		log.Panic(err)
 	}
 }
