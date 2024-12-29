@@ -9,10 +9,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/nutsdb/nutsdb"
+	"github.com/boltdb/bolt"
 )
 
-const dbFile = "db/dblockchain_%s"
+const dbFile = "blockchain_%s.db"
 const blocksBucket = "blocks"
 const genesisCoinbaseData = "Create block chain mannually according to Fuda MSE Project"
 const genesisBlockFile = "genesis.blk"
@@ -21,12 +21,10 @@ var centerWallets = GetCenterWallets()
 
 var genesisAddress = centerWallets.GetAddresses()[0]
 
-const dbFileSize = 4 * nutsdb.MB
-
 // Blockchain implements interactions with a DB
 type Blockchain struct {
 	tip []byte
-	db  *nutsdb.DB
+	DB  *bolt.DB
 }
 
 func GetDbName(nodeID string) string {
@@ -36,7 +34,7 @@ func GetDbName(nodeID string) string {
 func CreateGenesisIfNeeded(nodeID string) {
 	if !dbExists(GetDbName(nodeID)) {
 		bc := CreateBlockchain(nodeID)
-		defer bc.db.Close()
+		defer bc.DB.Close()
 
 		UTXOSet := UTXOSet{bc}
 		UTXOSet.Reindex()
@@ -64,7 +62,7 @@ func GetGenesisBlock() *Block {
 
 // CreateBlockchain creates a new blockchain DB
 func CreateBlockchain(nodeID string) *Blockchain {
-	dbFile := GetDbName(nodeID)
+	dbFile := fmt.Sprintf(dbFile, nodeID)
 	if dbExists(dbFile) {
 		fmt.Println("Blockchain already exists.")
 		os.Exit(1)
@@ -72,34 +70,36 @@ func CreateBlockchain(nodeID string) *Blockchain {
 
 	var tip []byte
 
-	// cbtx := NewCoinbaseTX(genesisAddress, genesisCoinbaseData)
-	// genesis := NewGenesisBlock(cbtx)
 	genesis := GetGenesisBlock()
-	db, err := nutsdb.Open(nutsdb.DefaultOptions, nutsdb.WithDir(dbFile), nutsdb.WithSegmentSize(dbFileSize))
+
+	db, err := bolt.Open(dbFile, 0600, nil)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	if err := db.Update(func(tx *nutsdb.Tx) error {
-		return tx.NewBucket(nutsdb.DataStructureBTree, blocksBucket)
-	}); err != nil {
-		log.Panic(err)
-	}
-
-	if err := db.Update(func(tx *nutsdb.Tx) error {
-		if err := tx.Put(blocksBucket, genesis.Hash, genesis.Serialize(), 0); err != nil {
-			return err
+	err = db.Update(func(tx *bolt.Tx) error {
+		b, err := tx.CreateBucket([]byte(blocksBucket))
+		if err != nil {
+			log.Panic(err)
 		}
 
-		if err := tx.Put(blocksBucket, []byte("l"), genesis.Hash, 0); err != nil {
-			return err
+		err = b.Put(genesis.Hash, genesis.Serialize())
+		if err != nil {
+			log.Panic(err)
 		}
 
+		err = b.Put([]byte("l"), genesis.Hash)
+		if err != nil {
+			log.Panic(err)
+		}
 		tip = genesis.Hash
+
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		log.Panic(err)
 	}
+
 	bc := Blockchain{tip, db}
 
 	return &bc
@@ -113,53 +113,57 @@ func NewBlockchain(nodeID string) *Blockchain {
 		os.Exit(1)
 	}
 
-	db, err := nutsdb.Open(nutsdb.DefaultOptions, nutsdb.WithDir(dbFile), nutsdb.WithSegmentSize(dbFileSize))
+	var tip []byte
+	db, err := bolt.Open(dbFile, 0600, nil)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	var bc Blockchain
-	if err := db.View(func(tx *nutsdb.Tx) error {
-		if tip, err := tx.Get(blocksBucket, []byte("l")); err != nil {
-			return err
-		} else {
-			bc = Blockchain{tip, db}
-		}
+	err = db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(blocksBucket))
+		tip = b.Get([]byte("l"))
+
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		log.Panic(err)
 	}
+
+	bc := Blockchain{tip, db}
 
 	return &bc
 }
 
 // AddBlock saves the block into the blockchain
 func (bc *Blockchain) AddBlock(block *Block) {
-	if err := bc.db.Update(func(tx *nutsdb.Tx) error {
-		blockInDb, _ := tx.Get(blocksBucket, block.Hash)
-
+	err := bc.DB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(blocksBucket))
+		blockInDb := b.Get(block.Hash)
 		if blockInDb != nil {
 			return nil
 		}
 
 		blockData := block.Serialize()
-		if err := tx.Put(blocksBucket, block.Hash, blockData, 0); err != nil {
+		err := b.Put(block.Hash, blockData)
+		if err != nil {
 			log.Panic(err)
 		}
 
-		lastHash, _ := tx.Get(blocksBucket, []byte("l"))
-		lastBlockData, _ := tx.Get(blocksBucket, lastHash)
+		lastHash := b.Get([]byte("l"))
+		lastBlockData := b.Get(lastHash)
 		lastBlock := DeserializeBlock(lastBlockData)
 
 		if block.Height > lastBlock.Height {
-			if err := tx.Put(blocksBucket, []byte("l"), block.Hash, 0); err != nil {
+			err = b.Put([]byte("l"), block.Hash)
+			if err != nil {
 				log.Panic(err)
 			}
 			bc.tip = block.Hash
 		}
 
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		log.Panic(err)
 	}
 }
@@ -231,7 +235,7 @@ func (bc *Blockchain) FindUTXO() map[string]TXOutputs {
 
 // Iterator returns a BlockchainIterat
 func (bc *Blockchain) Iterator() *BlockchainIterator {
-	bci := &BlockchainIterator{bc.tip, bc.db}
+	bci := &BlockchainIterator{bc.tip, bc.DB}
 
 	return bci
 }
@@ -240,13 +244,15 @@ func (bc *Blockchain) Iterator() *BlockchainIterator {
 func (bc *Blockchain) GetBestHeight() int {
 	var lastBlock Block
 
-	if err := bc.db.View(func(tx *nutsdb.Tx) error {
-		lastHash, _ := tx.Get(blocksBucket, []byte("l"))
-		blockData, _ := tx.Get(blocksBucket, lastHash)
+	err := bc.DB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(blocksBucket))
+		lastHash := b.Get([]byte("l"))
+		blockData := b.Get(lastHash)
 		lastBlock = *DeserializeBlock(blockData)
 
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		log.Panic(err)
 	}
 
@@ -257,8 +263,10 @@ func (bc *Blockchain) GetBestHeight() int {
 func (bc *Blockchain) GetBlock(blockHash []byte) (Block, error) {
 	var block Block
 
-	if err := bc.db.View(func(tx *nutsdb.Tx) error {
-		blockData, _ := tx.Get(blocksBucket, blockHash)
+	err := bc.DB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(blocksBucket))
+
+		blockData := b.Get(blockHash)
 
 		if blockData == nil {
 			return errors.New("Block is not found")
@@ -267,7 +275,8 @@ func (bc *Blockchain) GetBlock(blockHash []byte) (Block, error) {
 		block = *DeserializeBlock(blockData)
 
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		return block, err
 	}
 
@@ -304,34 +313,40 @@ func (bc *Blockchain) MineBlock(transactions []*Transaction) *Block {
 		}
 	}
 
-	if err := bc.db.View(func(tx *nutsdb.Tx) error {
-		lastHash, _ = tx.Get(blocksBucket, []byte("l"))
+	err := bc.DB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(blocksBucket))
+		lastHash = b.Get([]byte("l"))
 
-		blockData, _ := tx.Get(blocksBucket, lastHash)
+		blockData := b.Get(lastHash)
 		block := DeserializeBlock(blockData)
 
 		lastHeight = block.Height
 
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		log.Panic(err)
 	}
 
 	newBlock := NewBlock(transactions, lastHash, lastHeight+1)
 
-	if err := bc.db.Update(func(tx *nutsdb.Tx) error {
-		if err := tx.Put(blocksBucket, newBlock.Hash, newBlock.Serialize(), 0); err != nil {
+	err = bc.DB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(blocksBucket))
+		err := b.Put(newBlock.Hash, newBlock.Serialize())
+		if err != nil {
 			log.Panic(err)
 		}
 
-		if err := tx.Put(blocksBucket, []byte("l"), newBlock.Hash, 0); err != nil {
+		err = b.Put([]byte("l"), newBlock.Hash)
+		if err != nil {
 			log.Panic(err)
 		}
 
 		bc.tip = newBlock.Hash
 
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		log.Panic(err)
 	}
 

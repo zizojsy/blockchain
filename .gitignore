@@ -1,6 +1,6 @@
 *.db
 *.dat
 *.exe
-db/*
+*.db.lock
 *.blk
 .idea

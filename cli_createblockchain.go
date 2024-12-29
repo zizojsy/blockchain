@@ -6,7 +6,7 @@ import (
 
 func (cli *CLI) createBlockchain(nodeID string) {
 	bc := CreateBlockchain(nodeID)
-	defer bc.db.Close()
+	defer bc.DB.Close()
 
 	UTXOSet := UTXOSet{bc}
 	UTXOSet.Reindex()
