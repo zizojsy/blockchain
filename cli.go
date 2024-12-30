@@ -31,11 +31,19 @@ func (cli *CLI) createPrompt(cmd string, args []string, explains []string) strin
 func (cli *CLI) printUsage() {
 	fmt.Println("Usage:")
 	fmt.Println(cli.createPrompt("wallet",
-		[]string{"-c", "-l", "-t -f A -to B -a AMOUNT [-m]"},
-		[]string{"Create a new account in wallet", "List all accounts in wallet", "Transfer AMOUNT money from A to B, mine coin if -m flag is set"}))
+		[]string{"-c",
+			"-l",
+			"-T -f A -t B -a AMOUNT [-m]"},
+		[]string{"Create a new account in wallet",
+			"List all accounts in wallet",
+			"Transfer AMOUNT money from A to B, mine coin if -m flag is set"}))
 	fmt.Println(cli.createPrompt("service",
-		[]string{"-s [-m ADDRESS]", "-l", "-b ADDRESS"},
-		[]string{"Start Servece, mine coin if ADDRESS is given", "List all blocks in the blockchain", "Get balance of address"}))
+		[]string{"-s [-m ADDRESS]",
+			"-p",
+			"-b ADDRESS"},
+		[]string{"Start Servece, mine coin if ADDRESS is given",
+			"Print all blocks in the blockchain",
+			"Get balance of ADDRESS"}))
 }
 
 func (cli *CLI) validateArgs() {
@@ -60,6 +68,12 @@ func (cli *CLI) Run() {
 	serviceCmd := flag.NewFlagSet("service", flag.ExitOnError)
 
 	createWalletFlag := walletCmd.Bool("c", false, "Create a new account in wallet")
+	listWalletFlag := walletCmd.Bool("l", false, "List all accounts in wallet")
+	transferFlag := walletCmd.Bool("T", false, "Transfer AMOUNT money from A to B, mine coin if -m flag is set")
+
+	startFlag := serviceCmd.Bool("s", false, "Start Servece, mine coin if ADDRESS is given")
+	printFlag := serviceCmd.Bool("p", false, "Print all blocks in the blockchain")
+	balanceFlag := serviceCmd.Bool("b", false, "Get balance of ADDRESS")
 
 	fromAddr := walletCmd.String("f", "", "Source wallet address")
 	toAddr := walletCmd.String("t", "", "Destination wallet address")
@@ -89,11 +103,11 @@ func (cli *CLI) Run() {
 			cli.createWallet(nodeID)
 		}
 
-		if walletCmd.Lookup("l") != nil {
+		if *listWalletFlag {
 			cli.listAddresses(nodeID)
 		}
 
-		if walletCmd.Lookup("t") != nil {
+		if *transferFlag {
 			if *fromAddr == "" || *toAddr == "" || *transferAmount <= 0 {
 				walletCmd.Usage()
 				os.Exit(1)
@@ -104,15 +118,15 @@ func (cli *CLI) Run() {
 	}
 
 	if serviceCmd.Parsed() {
-		if serviceCmd.Lookup("s") != nil {
+		if *startFlag {
 			cli.startNode(nodeID, *mineAddr)
 		}
 
-		if serviceCmd.Lookup("l") != nil {
+		if *printFlag {
 			cli.printChain(nodeID)
 		}
 
-		if serviceCmd.Lookup("b") != nil {
+		if *balanceFlag {
 			cli.getBalance(*balanceAddr, nodeID)
 		}
 	}
