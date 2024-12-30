@@ -15,7 +15,9 @@ import (
 const dbFile = "blockchain_%s.db"
 const blocksBucket = "blocks"
 const genesisCoinbaseData = "Create block chain mannually according to Fuda MSE Project"
-const genesisBlockFile = "genesis.blk"
+
+// const genesisBlockFile = "genesis.blk"
+const genesisBlockData = "63ff8903010105426c6f636b01ff8a000106010954696d657374616d70010400010c5472616e73616374696f6e7301ff8c00010d50726576426c6f636b48617368010a00010448617368010a0001054e6f6e63650104000106486569676874010400000022ff8b020101135b5d2a6d61696e2e5472616e73616374696f6e01ff8c0001ff800000327f0301010b5472616e73616374696f6e01ff8000010301024944010a00010356696e01ff84000104566f757401ff880000001dff830201010e5b5d6d61696e2e5458496e70757401ff840001ff82000040ff81030101075458496e70757401ff82000104010454786964010a000104566f757401040001095369676e6174757265010a0001065075624b6579010a0000001eff870201010f5b5d6d61696e2e54584f757470757401ff880001ff8600002fff850301010854584f757470757401ff86000102010556616c7565010400010a5075624b657948617368010a000000ffb1ff8a01fccee1eb1801010120a7b3ddf2cf5658d10d126a73ee74d7b84a04d8c94d0854ed19e113c2afa5c49d01010201023a43726561746520626c6f636b20636861696e206d616e6e75616c6c79206163636f7264696e6720746f2046756461204d53452050726f6a656374000101011401144e190c9afd4c7bcb1f09e8263a26ea49e49ced310000022000002b40928246808d0b7fe186b63ddb36659e047800b76012d65327be8adad001fd013a5a00"
 
 var centerWallets = GetCenterWallets()
 
@@ -48,16 +50,24 @@ func CreateGenesisBlock() *Block {
 	return NewGenesisBlock(cbtx)
 }
 
+// func GetGenesisBlock() *Block {
+// 	if _, err := os.Stat(genesisBlockFile); errors.Is(err, os.ErrNotExist) {
+// 		genesis := CreateGenesisBlock()
+// 		genesis.SaveToFile(genesisBlockFile)
+// 		return genesis
+// 	} else {
+// 		genesis := Block{}
+// 		genesis.LoadFromFile(genesisBlockFile)
+// 		return &genesis
+// 	}
+// }
+
 func GetGenesisBlock() *Block {
-	if _, err := os.Stat(genesisBlockFile); errors.Is(err, os.ErrNotExist) {
-		genesis := CreateGenesisBlock()
-		genesis.SaveToFile(genesisBlockFile)
-		return genesis
-	} else {
-		genesis := Block{}
-		genesis.LoadFromFile(genesisBlockFile)
-		return &genesis
+	gensis := Block{}
+	if err := gensis.LoadFromHex(genesisBlockData); err != nil {
+		log.Panic(err)
 	}
+	return &gensis
 }
 
 // CreateBlockchain creates a new blockchain DB

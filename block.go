@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/gob"
+	"encoding/hex"
 	"log"
 	"os"
 	"time"
@@ -104,5 +105,19 @@ func (block *Block) LoadFromFile(filename string) error {
 		log.Panic(err)
 	}
 
+	return nil
+}
+
+func (block *Block) LoadFromHex(s string) error {
+	data, err := hex.DecodeString(s)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	decoder := gob.NewDecoder(bytes.NewReader(data))
+	err = decoder.Decode(&block)
+	if err != nil {
+		log.Panic(err)
+	}
 	return nil
 }
