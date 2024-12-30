@@ -11,7 +11,14 @@
             },
             "args": [
                 "wallet",
-                "-l"
+                "-T",
+                "-f",
+                "187wiR3JP6bEBewTkkTcSZNfCRmwTyteYz",
+                "-t",
+                "1CNdcxiS9Eio3zHZxYnhmi6vptDDXYXB6o",
+                "-m",
+                "-a",
+                "10"
             ]
         }
     ]
