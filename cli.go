@@ -41,7 +41,7 @@ func (cli *CLI) printUsage() {
 		[]string{"-s [-m ADDRESS]",
 			"-p",
 			"-b ADDRESS"},
-		[]string{"Start Servece, mine coin if ADDRESS is given",
+		[]string{"Start service, mine coin if ADDRESS is given",
 			"Print all blocks in the blockchain",
 			"Get balance of ADDRESS"}))
 }
