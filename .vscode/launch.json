@@ -10,15 +10,9 @@
                 "NODE_ID": "3000"
             },
             "args": [
-                "wallet",
-                "-T",
-                "-f",
-                "187wiR3JP6bEBewTkkTcSZNfCRmwTyteYz",
-                "-t",
-                "1CNdcxiS9Eio3zHZxYnhmi6vptDDXYXB6o",
-                "-m",
-                "-a",
-                "10"
+                "service",
+               "-b",
+                "1CNdcxiS9Eio3zHZxYnhmi6vptDDXYXB6o"
             ]
         }
     ]

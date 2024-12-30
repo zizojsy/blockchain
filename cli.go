@@ -73,13 +73,13 @@ func (cli *CLI) Run() {
 
 	startFlag := serviceCmd.Bool("s", false, "Start Servece, mine coin if ADDRESS is given")
 	printFlag := serviceCmd.Bool("p", false, "Print all blocks in the blockchain")
-	balanceFlag := serviceCmd.Bool("b", false, "Get balance of ADDRESS")
+	// balanceFlag := serviceCmd.Bool("b", false, "Get balance of ADDRESS")
 
 	fromAddr := walletCmd.String("f", "", "Source wallet address")
 	toAddr := walletCmd.String("t", "", "Destination wallet address")
 	transferAmount := walletCmd.Int("a", 0, "Amount to trainsfer")
 	transferMine := walletCmd.Bool("m", false, "Mine immediately on the same node")
-	balanceAddr := serviceCmd.String("a", "", "The address to get balance for")
+	balanceAddr := serviceCmd.String("b", "", "The address to get balance for")
 	mineAddr := serviceCmd.String("m", "", "Enable mining mode and send reward to ADDRESS")
 
 	switch os.Args[1] {
@@ -126,7 +126,7 @@ func (cli *CLI) Run() {
 			cli.printChain(nodeID)
 		}
 
-		if *balanceFlag {
+		if *balanceAddr != "" && ValidateAddress(*balanceAddr) {
 			cli.getBalance(*balanceAddr, nodeID)
 		}
 	}
