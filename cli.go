@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 
 	"os"
 )
@@ -12,14 +13,29 @@ import (
 // CLI responsible for processing command line arguments
 type CLI struct{}
 
+const indent = "  "
+
+func (cli *CLI) createPrompt(cmd string, args []string, explains []string) string {
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("%[1]s%[2]s\r\n", indent, cmd))
+
+	for idx, arg := range args {
+		sb.WriteString(fmt.Sprintf("%[1]s%[1]s%[2]s\r\n", indent, arg))
+		sb.WriteString(fmt.Sprintf("%[1]s%[1]s%[1]s%[2]s\r\n", indent, explains[idx]))
+	}
+
+	return sb.String()
+}
+
 func (cli *CLI) printUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  createwallet - Generates a new key-pair and saves it into the wallet file")
-	fmt.Println("  getbalance -address ADDRESS - Get balance of ADDRESS")
-	fmt.Println("  listaddresses - Lists all addresses from the wallet file")
-	fmt.Println("  printchain - Print all the blocks of the blockchain")
-	fmt.Println("  send -from FROM -to TO -amount AMOUNT -mine - Send AMOUNT of coins from FROM address to TO. Mine on the same node, when -mine is set.")
-	fmt.Println("  startnode -miner ADDRESS - Start a node with ID specified in NODE_ID env. var. -miner enables mining")
+	fmt.Println(cli.createPrompt("wallet",
+		[]string{"-c", "-l", "-t -f A -to B -a AMOUNT [-m]"},
+		[]string{"Create a new account in wallet", "List all accounts in wallet", "Transfer AMOUNT money from A to B, mine coin if -m flag is set"}))
+	fmt.Println(cli.createPrompt("service",
+		[]string{"-s [-m ADDRESS]", "-l", "-b ADDRESS"},
+		[]string{"Start Servece, mine coin if ADDRESS is given", "List all blocks in the blockchain", "Get balance of address"}))
 }
 
 func (cli *CLI) validateArgs() {
@@ -40,48 +56,26 @@ func (cli *CLI) Run() {
 	}
 	CreateGenesisIfNeeded(nodeID)
 
-	getBalanceCmd := flag.NewFlagSet("getbalance", flag.ExitOnError)
-	createWalletCmd := flag.NewFlagSet("createwallet", flag.ExitOnError)
-	listAddressesCmd := flag.NewFlagSet("listaddresses", flag.ExitOnError)
-	printChainCmd := flag.NewFlagSet("printchain", flag.ExitOnError)
-	sendCmd := flag.NewFlagSet("send", flag.ExitOnError)
-	startNodeCmd := flag.NewFlagSet("startnode", flag.ExitOnError)
+	walletCmd := flag.NewFlagSet("wallet", flag.ExitOnError)
+	serviceCmd := flag.NewFlagSet("service", flag.ExitOnError)
 
-	getBalanceAddress := getBalanceCmd.String("address", "", "The address to get balance for")
-	sendFrom := sendCmd.String("from", "", "Source wallet address")
-	sendTo := sendCmd.String("to", "", "Destination wallet address")
-	sendAmount := sendCmd.Int("amount", 0, "Amount to send")
-	sendMine := sendCmd.Bool("mine", false, "Mine immediately on the same node")
-	startNodeMiner := startNodeCmd.String("miner", "", "Enable mining mode and send reward to ADDRESS")
+	createWalletFlag := walletCmd.Bool("c", false, "Create a new account in wallet")
+
+	fromAddr := walletCmd.String("f", "", "Source wallet address")
+	toAddr := walletCmd.String("t", "", "Destination wallet address")
+	transferAmount := walletCmd.Int("a", 0, "Amount to trainsfer")
+	transferMine := walletCmd.Bool("m", false, "Mine immediately on the same node")
+	balanceAddr := serviceCmd.String("a", "", "The address to get balance for")
+	mineAddr := serviceCmd.String("m", "", "Enable mining mode and send reward to ADDRESS")
 
 	switch os.Args[1] {
-	case "getbalance":
-		err := getBalanceCmd.Parse(os.Args[2:])
+	case "wallet":
+		err := walletCmd.Parse(os.Args[2:])
 		if err != nil {
 			log.Panic(err)
 		}
-	case "createwallet":
-		err := createWalletCmd.Parse(os.Args[2:])
-		if err != nil {
-			log.Panic(err)
-		}
-	case "listaddresses":
-		err := listAddressesCmd.Parse(os.Args[2:])
-		if err != nil {
-			log.Panic(err)
-		}
-	case "printchain":
-		err := printChainCmd.Parse(os.Args[2:])
-		if err != nil {
-			log.Panic(err)
-		}
-	case "send":
-		err := sendCmd.Parse(os.Args[2:])
-		if err != nil {
-			log.Panic(err)
-		}
-	case "startnode":
-		err := startNodeCmd.Parse(os.Args[2:])
+	case "service":
+		err := serviceCmd.Parse(os.Args[2:])
 		if err != nil {
 			log.Panic(err)
 		}
@@ -90,42 +84,37 @@ func (cli *CLI) Run() {
 		os.Exit(1)
 	}
 
-	if getBalanceCmd.Parsed() {
-		if *getBalanceAddress == "" {
-			getBalanceCmd.Usage()
-			os.Exit(1)
-		}
-		cli.getBalance(*getBalanceAddress, nodeID)
-	}
-
-	if createWalletCmd.Parsed() {
-		cli.createWallet(nodeID)
-	}
-
-	if listAddressesCmd.Parsed() {
-		cli.listAddresses(nodeID)
-	}
-
-	if printChainCmd.Parsed() {
-		cli.printChain(nodeID)
-	}
-
-	if sendCmd.Parsed() {
-		if *sendFrom == "" || *sendTo == "" || *sendAmount <= 0 {
-			sendCmd.Usage()
-			os.Exit(1)
+	if walletCmd.Parsed() {
+		if *createWalletFlag {
+			cli.createWallet(nodeID)
 		}
 
-		cli.send(*sendFrom, *sendTo, *sendAmount, nodeID, *sendMine)
+		if walletCmd.Lookup("l") != nil {
+			cli.listAddresses(nodeID)
+		}
+
+		if walletCmd.Lookup("t") != nil {
+			if *fromAddr == "" || *toAddr == "" || *transferAmount <= 0 {
+				walletCmd.Usage()
+				os.Exit(1)
+			}
+
+			cli.send(*fromAddr, *toAddr, *transferAmount, nodeID, *transferMine)
+		}
 	}
 
-	if startNodeCmd.Parsed() {
-		nodeID := os.Getenv("NODE_ID")
-		if nodeID == "" {
-			startNodeCmd.Usage()
-			os.Exit(1)
+	if serviceCmd.Parsed() {
+		if serviceCmd.Lookup("s") != nil {
+			cli.startNode(nodeID, *mineAddr)
 		}
-		cli.startNode(nodeID, *startNodeMiner)
+
+		if serviceCmd.Lookup("l") != nil {
+			cli.printChain(nodeID)
+		}
+
+		if serviceCmd.Lookup("b") != nil {
+			cli.getBalance(*balanceAddr, nodeID)
+		}
 	}
 }
 

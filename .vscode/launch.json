@@ -7,12 +7,11 @@
             "mode": "auto",
             "program": "${fileDirname}",
             "env": {
-                "NODE_ID": "3002"
+                "NODE_ID": "3000"
             },
             "args": [
-                "getbalance",
-                "-address",
-                "1Ak2A6qbqzGmVcK864rMNQ8Tegfo9rVp8w"
+                "wallet",
+                "-l"
             ]
         }
     ]
