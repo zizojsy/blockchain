@@ -110,16 +110,16 @@ func sendBlock(addr string, b *Block) {
 func sendData(addr string, data []byte) {
 	conn, err := net.Dial(protocol, addr)
 	if err != nil {
-		fmt.Printf("%s is not online\n", addr)
-		var offlineNode int
+		fmt.Printf("%s is not available\n", addr)
+		var updatedNodes []string
 
-		for idx, node := range knownNodes {
-			if node == addr {
-				offlineNode = idx
+		for _, node := range knownNodes {
+			if node != addr {
+				updatedNodes = append(updatedNodes, node)
 			}
 		}
 
-		knownNodes = append(knownNodes[:offlineNode], knownNodes[offlineNode+1:]...)
+		knownNodes = updatedNodes
 		return
 	}
 	defer conn.Close()
@@ -180,9 +180,15 @@ func sendVersion(addr string, bc *Blockchain) {
 // 		log.Panic(err)
 // 	}
 
-// 	knownNodes = append(knownNodes, payload.AddrList...)
+// 	for _, node := range payload.AddrList {
+// 		if !nodeIsKnown(node) {
+// 			knownNodes = append(knownNodes, node)
+// 		}
+// 	}
+
+// 	// knownNodes = append(knownNodes, payload.AddrList...)
 // 	fmt.Printf("There are %d known nodes now!\n", len(knownNodes))
-// 	requestBlocks()
+// 	// requestBlocks()
 // }
 
 func handleBlock(request []byte, bc *Blockchain) {
@@ -375,18 +381,6 @@ func handleVersion(request []byte, bc *Blockchain) {
 		log.Panic(err)
 	}
 
-	if nodeAddress == knownNodes[0] {
-		chkFlag := false
-		for _, node := range knownNodes {
-			if node == payload.AddrFrom {
-				chkFlag = !chkFlag
-			}
-		}
-		if !chkFlag {
-			knownNodes = append(knownNodes, payload.AddrFrom)
-		}
-	}
-
 	myBestHeight := bc.GetBestHeight()
 	foreignerBestHeight := payload.BestHeight
 
@@ -396,10 +390,10 @@ func handleVersion(request []byte, bc *Blockchain) {
 		sendVersion(payload.AddrFrom, bc)
 	}
 
-	// // sendAddr(payload.AddrFrom)
-	// if !nodeIsKnown(payload.AddrFrom) {
-	// 	knownNodes = append(knownNodes, payload.AddrFrom)
-	// }
+	// sendAddr(payload.AddrFrom)
+	if !nodeIsKnown(payload.AddrFrom) {
+		knownNodes = append(knownNodes, payload.AddrFrom)
+	}
 }
 
 func handleConnection(conn net.Conn, bc *Blockchain) {
@@ -469,12 +463,12 @@ func gobEncode(data interface{}) []byte {
 	return buff.Bytes()
 }
 
-// func nodeIsKnown(addr string) bool {
-// 	for _, node := range knownNodes {
-// 		if node == addr {
-// 			return true
-// 		}
-// 	}
+func nodeIsKnown(addr string) bool {
+	for _, node := range knownNodes {
+		if node == addr {
+			return true
+		}
+	}
 
-// 	return false
-// }
+	return false
+}

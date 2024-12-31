@@ -73,7 +73,6 @@ func (cli *CLI) Run() {
 
 	startFlag := serviceCmd.Bool("s", false, "Start Servece, mine coin if ADDRESS is given")
 	printFlag := serviceCmd.Bool("p", false, "Print all blocks in the blockchain")
-	// balanceFlag := serviceCmd.Bool("b", false, "Get balance of ADDRESS")
 
 	fromAddr := walletCmd.String("f", "", "Source wallet address")
 	toAddr := walletCmd.String("t", "", "Destination wallet address")
