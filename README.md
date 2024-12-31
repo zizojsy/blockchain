@@ -83,11 +83,7 @@ $env:node_id=[端口号]
     Success!
 ```
 
-<<<<<<< HEAD
 ### 4. 启动服务，同步数据并保存至数据库中
-=======
-### 4. 启动服务
->>>>>>> 0b2ee1481b6419134338125493aa6fba655cc531
 ```
     $> blockchain service -s -m 1DMm8boViwyVMyts9ce6pFxikLqHv3VSa4
 ```
