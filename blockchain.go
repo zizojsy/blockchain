@@ -294,14 +294,17 @@ func (bc *Blockchain) GetBlock(blockHash []byte) (Block, error) {
 }
 
 // GetBlockHashes returns a list of hashes of all the blocks in the chain
-func (bc *Blockchain) GetBlockHashes() [][]byte {
+func (bc *Blockchain) GetBlockHashes(height int) [][]byte {
 	var blocks [][]byte
 	bci := bc.Iterator()
 
 	for {
 		block := bci.Next()
-
-		blocks = append(blocks, block.Hash)
+		if block.Height > height {
+			blocks = append(blocks, block.Hash)
+		} else {
+			break
+		}
 
 		if len(block.PrevBlockHash) == 0 {
 			break

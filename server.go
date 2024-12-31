@@ -21,9 +21,9 @@ var knownNodes = []string{fmt.Sprintf("localhost:%s", centerNodeId)}
 var blocksInTransit = [][]byte{}
 var mempool = make(map[string]Transaction)
 
-type addr struct {
-	AddrList []string
-}
+// type addr struct {
+// 	AddrList []string
+// }
 
 type block struct {
 	AddrFrom string
@@ -32,6 +32,7 @@ type block struct {
 
 type getblocks struct {
 	AddrFrom string
+	Height   int
 }
 
 type getdata struct {
@@ -83,11 +84,11 @@ func bytesToCommand(bytes []byte) string {
 // 	return request[:commandLength]
 // }
 
-func requestBlocks() {
-	for _, node := range knownNodes {
-		sendGetBlocks(node)
-	}
-}
+// func requestBlocks() {
+// 	for _, node := range knownNodes {
+// 		sendGetBlocks(node)
+// 	}
+// }
 
 // func sendAddr(address string) {
 // 	nodes := addr{knownNodes}
@@ -109,17 +110,16 @@ func sendBlock(addr string, b *Block) {
 func sendData(addr string, data []byte) {
 	conn, err := net.Dial(protocol, addr)
 	if err != nil {
-		fmt.Printf("%s is not available\n", addr)
-		var updatedNodes []string
+		fmt.Printf("%s is not online\n", addr)
+		var offlineNode int
 
-		for _, node := range knownNodes {
-			if node != addr {
-				updatedNodes = append(updatedNodes, node)
+		for idx, node := range knownNodes {
+			if node == addr {
+				offlineNode = idx
 			}
 		}
 
-		knownNodes = updatedNodes
-
+		knownNodes = append(knownNodes[:offlineNode], knownNodes[offlineNode+1:]...)
 		return
 	}
 	defer conn.Close()
@@ -138,8 +138,8 @@ func sendInv(address, kind string, items [][]byte) {
 	sendData(address, request)
 }
 
-func sendGetBlocks(address string) {
-	payload := gobEncode(getblocks{nodeAddress})
+func sendGetBlocks(address string, myBestHeight int) {
+	payload := gobEncode(getblocks{nodeAddress, myBestHeight})
 	request := append(commandToBytes("getblocks"), payload...)
 
 	sendData(address, request)
@@ -169,21 +169,21 @@ func sendVersion(addr string, bc *Blockchain) {
 	sendData(addr, request)
 }
 
-func handleAddr(request []byte) {
-	var buff bytes.Buffer
-	var payload addr
+// func handleAddr(request []byte) {
+// 	var buff bytes.Buffer
+// 	var payload addr
 
-	buff.Write(request[commandLength:])
-	dec := gob.NewDecoder(&buff)
-	err := dec.Decode(&payload)
-	if err != nil {
-		log.Panic(err)
-	}
+// 	buff.Write(request[commandLength:])
+// 	dec := gob.NewDecoder(&buff)
+// 	err := dec.Decode(&payload)
+// 	if err != nil {
+// 		log.Panic(err)
+// 	}
 
-	knownNodes = append(knownNodes, payload.AddrList...)
-	fmt.Printf("There are %d known nodes now!\n", len(knownNodes))
-	requestBlocks()
-}
+// 	knownNodes = append(knownNodes, payload.AddrList...)
+// 	fmt.Printf("There are %d known nodes now!\n", len(knownNodes))
+// 	requestBlocks()
+// }
 
 func handleBlock(request []byte, bc *Blockchain) {
 	var buff bytes.Buffer
@@ -229,18 +229,21 @@ func handleInv(request []byte) {
 	fmt.Printf("Recevied inventory with %d %s\n", len(payload.Items), payload.Type)
 
 	if payload.Type == "block" {
-		blocksInTransit = payload.Items
+		// blocksInTransit = payload.Items
 
-		blockHash := payload.Items[0]
-		sendGetData(payload.AddrFrom, "block", blockHash)
+		// blockHash := payload.Items[0]
+		// sendGetData(payload.AddrFrom, "block", blockHash)
 
-		newInTransit := [][]byte{}
-		for _, b := range blocksInTransit {
-			if !bytes.Equal(b, blockHash) {
-				newInTransit = append(newInTransit, b)
-			}
+		// newInTransit := [][]byte{}
+		// for _, b := range blocksInTransit {
+		// 	if !bytes.Equal(b, blockHash) {
+		// 		newInTransit = append(newInTransit, b)
+		// 	}
+		// }
+		// blocksInTransit = newInTransit
+		for _, blockHash := range payload.Items {
+			sendGetData(payload.AddrFrom, "block", blockHash)
 		}
-		blocksInTransit = newInTransit
 	}
 
 	if payload.Type == "tx" {
@@ -263,7 +266,7 @@ func handleGetBlocks(request []byte, bc *Blockchain) {
 		log.Panic(err)
 	}
 
-	blocks := bc.GetBlockHashes()
+	blocks := bc.GetBlockHashes(payload.Height)
 	sendInv(payload.AddrFrom, "block", blocks)
 }
 
@@ -372,19 +375,31 @@ func handleVersion(request []byte, bc *Blockchain) {
 		log.Panic(err)
 	}
 
+	if nodeAddress == knownNodes[0] {
+		chkFlag := false
+		for _, node := range knownNodes {
+			if node == payload.AddrFrom {
+				chkFlag = !chkFlag
+			}
+		}
+		if !chkFlag {
+			knownNodes = append(knownNodes, payload.AddrFrom)
+		}
+	}
+
 	myBestHeight := bc.GetBestHeight()
 	foreignerBestHeight := payload.BestHeight
 
 	if myBestHeight < foreignerBestHeight {
-		sendGetBlocks(payload.AddrFrom)
+		sendGetBlocks(payload.AddrFrom, myBestHeight)
 	} else if myBestHeight > foreignerBestHeight {
 		sendVersion(payload.AddrFrom, bc)
 	}
 
-	// sendAddr(payload.AddrFrom)
-	if !nodeIsKnown(payload.AddrFrom) {
-		knownNodes = append(knownNodes, payload.AddrFrom)
-	}
+	// // sendAddr(payload.AddrFrom)
+	// if !nodeIsKnown(payload.AddrFrom) {
+	// 	knownNodes = append(knownNodes, payload.AddrFrom)
+	// }
 }
 
 func handleConnection(conn net.Conn, bc *Blockchain) {
@@ -396,8 +411,8 @@ func handleConnection(conn net.Conn, bc *Blockchain) {
 	fmt.Printf("Received %s command\n", command)
 
 	switch command {
-	case "addr":
-		handleAddr(request)
+	// case "addr":
+	// 	handleAddr(request)
 	case "block":
 		handleBlock(request, bc)
 	case "inv":
@@ -454,12 +469,12 @@ func gobEncode(data interface{}) []byte {
 	return buff.Bytes()
 }
 
-func nodeIsKnown(addr string) bool {
-	for _, node := range knownNodes {
-		if node == addr {
-			return true
-		}
-	}
+// func nodeIsKnown(addr string) bool {
+// 	for _, node := range knownNodes {
+// 		if node == addr {
+// 			return true
+// 		}
+// 	}
 
-	return false
-}
+// 	return false
+// }
